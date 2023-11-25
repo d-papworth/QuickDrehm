@@ -46,6 +46,7 @@ typedef struct ratePid_s {
   float kp[AXIS_COUNT]; // pterm constant
   float ki[AXIS_COUNT]; // iterm constant
   float kd[AXIS_COUNT]; // dterm constant
+  float kff[AXIS_COUNT]; // ffterm constant, should only be used in fixed wing flight
 
   // todo add dterm lowpass filter
   pt2Filter_t dterm_lowpass[AXIS_COUNT];
@@ -60,6 +61,10 @@ typedef struct gyroFilters_s {
   rpmFilter_t rpmFilter;
   pt1Filter_t lowpassFilter[AXIS_COUNT];
 } gyroFilters_t;
+
+typedef struct rcFilters_s {
+  pt3Filter_t lowpassFilter[4];
+} rcFilters_t;
 
 //======================================================ATTITUDE PID=======================================================//
 
@@ -125,24 +130,29 @@ void attitudePidApply(attitudePid_t *pid, float setpoint_angles[], float gravity
 
 // todo add dterm lowpass filter
 void ratePidInit(ratePid_t *pid) {
-// pid scaling used in BF
+// pid scaling used in BF/inav
 #define PTERM_SCALE (0.032029f / 1000.0f)
 #define ITERM_SCALE (0.244381f / 1000.0f)
 #define DTERM_SCALE (0.000529f / 1000.0f)
+#define FFTERM_SCALE (0.032029f / 1000.0f)
+
   // Roll PID's
   pid->kp[AXIS_ROLL] = PTERM_SCALE * 70.0f;
   pid->ki[AXIS_ROLL] = ITERM_SCALE * 30.0f;
   pid->kd[AXIS_ROLL] = DTERM_SCALE * 20.0f;
+  pid->kff[AXIS_ROLL] = FFTERM_SCALE * 0.0f;
 
   // Pitch PID's
   pid->kp[AXIS_PITCH] = PTERM_SCALE * 70.0f;
   pid->ki[AXIS_PITCH] = ITERM_SCALE * 30.0f;
   pid->kd[AXIS_PITCH] = DTERM_SCALE * 20.0f;
+  pid->kff[AXIS_PITCH] = FFTERM_SCALE * 0.0f;
 
   // Yaw PID's
   pid->kp[AXIS_YAW] = PTERM_SCALE * 100.0f;
   pid->ki[AXIS_YAW] = ITERM_SCALE * 30.0f;
   pid->kd[AXIS_YAW] = DTERM_SCALE * 5.0f;
+  pid->kff[AXIS_YAW] = FFTERM_SCALE * 0.0f;
 
   for (int axis = 0; axis < AXIS_COUNT; axis++) {
     pid->previous_gyro[axis] = 0.0f;
@@ -156,6 +166,44 @@ void ratePidInit(ratePid_t *pid) {
   }
 
   pid->max_iterm_windup = 0.15f; // iterm can grow at most to 15% motor output
+}
+
+void updatePids(
+    ratePid_t *pid,
+    float roll_p,
+    float roll_i,
+    float roll_d,
+    float roll_ff,
+    float pitch_p,
+    float pitch_i,
+    float pitch_d,
+    float pitch_ff,
+    float yaw_p,
+    float yaw_i,
+    float yaw_d,
+    float yaw_ff
+  ) {
+  #define PTERM_SCALE (0.032029f / 1000.0f)
+  #define ITERM_SCALE (0.244381f / 1000.0f)
+  #define DTERM_SCALE (0.000529f / 1000.0f)
+  #define FFTERM_SCALE (0.032029f / 1000.0f)
+  // Roll PID's
+  pid->kp[AXIS_ROLL] = PTERM_SCALE * roll_p;
+  pid->ki[AXIS_ROLL] = ITERM_SCALE * roll_i;
+  pid->kd[AXIS_ROLL] = DTERM_SCALE * roll_d;
+  pid->kff[AXIS_ROLL] = FFTERM_SCALE * roll_ff;
+
+  // Pitch PID's
+  pid->kp[AXIS_PITCH] = PTERM_SCALE * pitch_p;
+  pid->ki[AXIS_PITCH] = ITERM_SCALE * pitch_i;
+  pid->kd[AXIS_PITCH] = DTERM_SCALE * pitch_d;
+  pid->kff[AXIS_PITCH] = FFTERM_SCALE * pitch_ff;
+
+  // Yaw PID's
+  pid->kp[AXIS_YAW] = PTERM_SCALE * roll_p;
+  pid->ki[AXIS_YAW] = ITERM_SCALE * roll_i;
+  pid->kd[AXIS_YAW] = DTERM_SCALE * roll_d;
+  pid->kff[AXIS_YAW] = FFTERM_SCALE * roll_ff;
 }
 
 void ratePidApply(ratePid_t *pid, float setpoint[], float gyro[], float pidSums[]) {
@@ -174,7 +222,9 @@ void ratePidApply(ratePid_t *pid, float setpoint[], float gyro[], float pidSums[
     derivative = pt2FilterApply(&pid->dterm_lowpass[axis], derivative);
     float dterm = pid->kd[axis] * derivative;
 
-    pidSums[axis] = pterm + iterm + dterm;
+    float ffterm = pid->kff[axis] * setpoint[axis];
+
+    pidSums[axis] = pterm + iterm + dterm + ffterm;
   }
 }
 
@@ -230,6 +280,26 @@ void gyroFiltersApply(gyroFilters_t *gyroFilters, float gyro[]) {
   }
 }
 
+//======================================================RC FILTERS=======================================================//
+
+// initialize rc filters
+void initRCFilters(rcFilters_t *rcFilters) {
+  for (int channel = 0; channel < 4; channel++) { // initialize all lowpass filters for each axis
+    pt3FilterInit(
+      &rcFilters->lowpassFilter[channel], 
+      20.0f, // Filter cutoff 
+      DT // dT
+    );
+  }
+}
+
+// applies gyro filters to all axis of the gyro
+void rcFiltersApply(rcFilters_t *rcFilters, float rc[]) {
+  for (int channel = 0; channel < 4; channel++) {
+    rc[channel] = pt3FilterApply(&rcFilters->lowpassFilter[channel], rc[channel]); // lowpass filter
+  }
+}
+
 //========================================================================================================================//
 //                                                      VOID SETUP                                                        //
 //========================================================================================================================//
@@ -242,6 +312,7 @@ boundedRangeScaler_t servoScales[MAX_SERVO_COUNT];
 attitudePid_t attitudePid;
 ratePid_t ratePid;
 gyroFilters_t gyroFilters;
+rcFilters_t rcFilters;
 pt2Filter_t accFilters[AXIS_COUNT];
 
 // All the code that is only run once
@@ -266,7 +337,10 @@ void setup() {
   // Initilize the gyroFilters
   initGyroFilters(&gyroFilters);
 
-  // Initilize the gyroFilters
+  // Initilize the rcFilters
+  initRCFilters(&rcFilters);
+
+  // Initilize the accFilters
   for (int axis = 0; axis < AXIS_COUNT; axis++) {
     pt2FilterInit(&accFilters[axis], 10.0f, ACC_DT);
   }
@@ -318,8 +392,6 @@ void setup() {
     printDebug(", yaw", raw_gyro[AXIS_YAW]);
     printNewLine();
   }
-
-  float dt = actualDt(current_time); // For debugging only, used to get the actual dt between loops in seconds
 */
 
 //========================================================================================================================//
@@ -415,9 +487,7 @@ void loop() {
 
   // TODO add rc filtering
 
-  for (int i = 0; i < 4; i++) { // filter the first four channels, we don't want to filter switches
-
-  }
+  rcFiltersApply(&rcFilters, rc_channels);
 
 //===============================================CREATE SETPOINTS FOR PID CONTROLLER===================================================//
 
@@ -430,17 +500,27 @@ void loop() {
     // keep the max angle below about 85 to keep from estimation troubles
     setpoints_rpy[AXIS_ROLL] = rcCurve(rc_channels[RC_ROLL], 0.5f, 45.0f); // scaled value, expo, max angle deg
     setpoints_rpy[AXIS_PITCH] = rcCurve(rc_channels[RC_PITCH], 0.5f, 45.0f); // scaled value, expo, max angle deg
+
+    float fixed_wing_max_yaw = 120.0f;
+    float multirotor_max_yaw = 300.0f;
+    // setpoint will change as we move towards fixed wing flight mode
+    float max_yaw_setpoint = rc_channels[RC_AUX3] * fixed_wing_max_yaw + (1.0f - rc_channels[RC_AUX3]) * multirotor_max_yaw;
     // yaw is set to negative rc_channels positive gyro yaw is to the left we want stick movements to the right to be positive
-    setpoints_rpy[AXIS_YAW] = -rcCurve(rc_channels[RC_YAW], 0.5f, 300.0f); // scaled value, expo, max rotation deg/sec
+    setpoints_rpy[AXIS_YAW] = -rcCurve(rc_channels[RC_YAW], 0.5f, max_yaw_setpoint); // scaled value, expo, max rotation deg/sec
   } else { // acro mode
     // These setpoints are in deg/sec, in otherwords how fast you want to rotate
     // be careful setting the max setpoint above 80 deg for yaw on fixed wings as they have trouble yawing that fast
     // be careful setting the max setpoint above 300 for pitch and roll on fixed wing as they have trouble rotating that fast
-    setpoints_rpy[AXIS_ROLL] = rcCurve(rc_channels[RC_ROLL], 0.5f, 300.0f); // scaled value, expo, max rotation deg/sec
-    setpoints_rpy[AXIS_PITCH] = rcCurve(rc_channels[RC_PITCH], 0.5f, 300.0f); // scaled value, expo, max rotation deg/sec
+    float fixed_wing_max_setpoint = 120.0f;
+    float multirotor_max_setpoint = 300.0f;
+    // setpoint will change as we move towards fixed wing flight mode
+    float max_setpoint = rc_channels[RC_AUX3] * fixed_wing_max_setpoint + (1.0f - rc_channels[RC_AUX3]) * multirotor_max_setpoint;
+
+    setpoints_rpy[AXIS_ROLL] = rcCurve(rc_channels[RC_ROLL], 0.5f, max_setpoint); // scaled value, expo, max rotation deg/sec
+    setpoints_rpy[AXIS_PITCH] = rcCurve(rc_channels[RC_PITCH], 0.5f, max_setpoint); // scaled value, expo, max rotation deg/sec
 
     // yaw is set to negative rc_channels positive gyro yaw is to the left we want stick movements to the right to be positive
-    setpoints_rpy[AXIS_YAW] = -rcCurve(rc_channels[RC_YAW], 0.5f, 300.0f); // scaled value, expo, max rotation deg/sec
+    setpoints_rpy[AXIS_YAW] = -rcCurve(rc_channels[RC_YAW], 0.5f, max_setpoint); // scaled value, expo, max rotation deg/sec
   }
 
 //===============================================MODIFY SETPOINTS DURING FAILSAFE===================================================//
@@ -462,6 +542,39 @@ void loop() {
   };
 
 //=========================================================PID CONTROLLERS=========================================================//
+
+  // update pid values based on flight mode
+  // when aux3 is low we are in multirotor flight mode, when aux3 is high we are in fixed wing flight mode
+  // first number is the fixed wing pid, second number is the multirotor pid
+  float roll_kp = rc_channels[RC_AUX3] * 35.0f + (1.0f - rc_channels[RC_AUX3]) * 70.0f;
+  float roll_ki = rc_channels[RC_AUX3] * 15.0f + (1.0f - rc_channels[RC_AUX3]) * 30.0f;
+  float roll_kd = rc_channels[RC_AUX3] * 1.0f + (1.0f - rc_channels[RC_AUX3]) * 20.0f;
+  float roll_kff = rc_channels[RC_AUX3] * 70.0f + (1.0f - rc_channels[RC_AUX3]) * 0.0f;
+
+  float pitch_kp = rc_channels[RC_AUX3] * 35.0f + (1.0f - rc_channels[RC_AUX3]) * 70.0f;
+  float pitch_ki = rc_channels[RC_AUX3] * 15.0f + (1.0f - rc_channels[RC_AUX3]) * 30.0f;
+  float pitch_kd = rc_channels[RC_AUX3] * 1.0f + (1.0f - rc_channels[RC_AUX3]) * 20.0f;
+  float pitch_kff = rc_channels[RC_AUX3] * 70.0f + (1.0f - rc_channels[RC_AUX3]) * 0.0f;
+
+  float yaw_kp = rc_channels[RC_AUX3] * 60.0f + (1.0f - rc_channels[RC_AUX3]) * 100.0f;
+  float yaw_ki = rc_channels[RC_AUX3] * 25.0f + (1.0f - rc_channels[RC_AUX3]) * 30.0f;
+  float yaw_kd = rc_channels[RC_AUX3] * 10.0f + (1.0f - rc_channels[RC_AUX3]) * 5.0f;
+  float yaw_kff = rc_channels[RC_AUX3] * 10.0f + (1.0f - rc_channels[RC_AUX3]) * 5.0f;
+  updatePids(
+    &ratePid,
+    roll_kp,
+    roll_ki,
+    roll_kd,
+    roll_kff,
+    pitch_kp,
+    pitch_ki,
+    pitch_kd,
+    pitch_kff,
+    yaw_kp,
+    yaw_ki,
+    yaw_kd,
+    yaw_kff
+  );
 
   float pidSums[AXIS_COUNT] = {0.0f, 0.0f, 0.0f}; // will be used in the mixer
   if (rc_channels[RC_AUX1] > 0.55) { // lets call aux1 angle mode for now, you can rename it later
@@ -545,7 +658,7 @@ void loop() {
     motor_commands // values we want to send to the motors, should be between 0.0 and 1.0
   );
 
- rpmFilterUpdate(&gyroFilters.rpmFilter, motor_rpms, new_rpm, DT); // Update the RPM filter using the newest RPM measured
+  rpmFilterUpdate(&gyroFilters.rpmFilter, motor_rpms, new_rpm, DT); // Update the RPM filter using the newest RPM measured
 
   bool should_print = shouldPrint(current_time, 50.0f); // Print data at 5hz
   
@@ -640,17 +753,45 @@ void controlMixer(float rc_channels[], float pidSums[], float motor_commands[], 
 
   // Quad mixing - EXAMPLE
   // motor commands should be between 0 and 1
-  motor_commands[MOTOR_0] = throttle + pidSums[AXIS_ROLL] + pidSums[AXIS_PITCH] /*+ pidSums[AXIS_YAW]*/; // back left motor
-  motor_commands[MOTOR_1] = throttle - pidSums[AXIS_ROLL] - pidSums[AXIS_PITCH] /*+ pidSums[AXIS_YAW]*/; // front right motor
-  motor_commands[MOTOR_2] = throttle + pidSums[AXIS_ROLL] - pidSums[AXIS_PITCH] /*- pidSums[AXIS_YAW]*/; // front left motor
-  motor_commands[MOTOR_3] = throttle - pidSums[AXIS_ROLL] + pidSums[AXIS_PITCH] /*- pidSums[AXIS_YAW]*/; // back right motor
+  float motor_commands_multi[MOTOR_COUNT];
+  float motor_commands_fixedwing[MOTOR_COUNT];
+  
+  motor_commands_multi[MOTOR_0] = throttle + pidSums[AXIS_ROLL] + pidSums[AXIS_PITCH] /*+ pidSums[AXIS_YAW]*/; // back left motor
+  motor_commands_multi[MOTOR_1] = throttle - pidSums[AXIS_ROLL] - pidSums[AXIS_PITCH] /*+ pidSums[AXIS_YAW]*/; // front right motor
+  motor_commands_multi[MOTOR_2] = throttle + pidSums[AXIS_ROLL] - pidSums[AXIS_PITCH] /*- pidSums[AXIS_YAW]*/; // front left motor
+  motor_commands_multi[MOTOR_3] = throttle - pidSums[AXIS_ROLL] + pidSums[AXIS_PITCH] /*- pidSums[AXIS_YAW]*/; // back right motor
+
+  motor_commands_fixedwing[MOTOR_0] = throttle - pidSums[AXIS_YAW]; // back left motor
+  motor_commands_fixedwing[MOTOR_1] = throttle + pidSums[AXIS_YAW]; // front right motor
+  motor_commands_fixedwing[MOTOR_2] = throttle - pidSums[AXIS_YAW]; // front left motor
+  motor_commands_fixedwing[MOTOR_3] = throttle + pidSums[AXIS_YAW]; // back right motor
+
+  motor_commands[MOTOR_0] = motor_commands_multi[MOTOR_0] * (1.0f - rc_channels[RC_AUX3]) + motor_commands_fixedwing[MOTOR_0] * rc_channels[RC_AUX3]; // back left motor
+  motor_commands[MOTOR_1] = motor_commands_multi[MOTOR_1] * (1.0f - rc_channels[RC_AUX3]) + motor_commands_fixedwing[MOTOR_1] * rc_channels[RC_AUX3]; // front right motor
+  motor_commands[MOTOR_2] = motor_commands_multi[MOTOR_2] * (1.0f - rc_channels[RC_AUX3]) + motor_commands_fixedwing[MOTOR_2] * rc_channels[RC_AUX3]; // front left motor
+  motor_commands[MOTOR_3] = motor_commands_multi[MOTOR_3] * (1.0f - rc_channels[RC_AUX3]) + motor_commands_fixedwing[MOTOR_3] * rc_channels[RC_AUX3]; // back right motor
   // servos need to be scaled to work properly with the servo scaling that happened earlier
-  servo_commands[SERVO_0] = -90.0f + constrain(pidSums[AXIS_YAW] * 45.0f, 0.0f, 45.0f) + rc_channels[RC_AUX3] * 45.0f;
-  servo_commands[SERVO_1] = -90.0f - constrain(pidSums[AXIS_YAW] * 45.0f, -45.0f, 0.0f) + rc_channels[RC_AUX3] * 45.0f;
-  servo_commands[SERVO_2] = 0.0f;
-  servo_commands[SERVO_3] = 0.0f;
-  servo_commands[SERVO_4] = 90.0f - constrain(pidSums[AXIS_YAW] * 45.0f, 0.0f, 45.0f) - rc_channels[RC_AUX3] * 45.0f;
-  servo_commands[SERVO_5] = 90.0f + constrain(pidSums[AXIS_YAW] * 45.0f, -45.0f, 0.0f) - rc_channels[RC_AUX3] * 45.0f;
+
+  // multirotor_yaw fades out as we move into fixed wing
+  float multirotor_yaw_positive = constrain(pidSums[AXIS_YAW] * 90.0f, 0.0f, 90.0f);
+  float multirotor_yaw_negative = constrain(pidSums[AXIS_YAW] * 90.0f, -90.0f, 0.0f);
+  float servo0123_default_position = -90.0f + rc_channels[RC_AUX3] * 90.0f;
+  float servo45_default_position = 90.0f - rc_channels[RC_AUX3] * 90.0f;
+
+  float servo_commands_fixedwing[SERVO_COUNT];
+  servo_commands_fixedwing[SERVO_0] = (pidSums[AXIS_ROLL] + pidSums[AXIS_PITCH]) * 45.0f; // front right
+  servo_commands_fixedwing[SERVO_1] = (-pidSums[AXIS_ROLL] + pidSums[AXIS_PITCH]) * 45.0f; // front left
+  servo_commands_fixedwing[SERVO_2] = (-pidSums[AXIS_ROLL] - pidSums[AXIS_PITCH]) * 45.0f; // back ??
+  servo_commands_fixedwing[SERVO_3] = (pidSums[AXIS_ROLL] - pidSums[AXIS_PITCH]) * 45.0f; // back ??
+  servo_commands_fixedwing[SERVO_4] = (-pidSums[AXIS_ROLL] + pidSums[AXIS_PITCH]) * 25.0f; // back right motor
+  servo_commands_fixedwing[SERVO_5] = (pidSums[AXIS_ROLL] + pidSums[AXIS_PITCH]) * 25.0f; // back left motor
+
+  servo_commands[SERVO_0] = servo0123_default_position + multirotor_yaw_positive * (1.0f - rc_channels[RC_AUX3]) + servo_commands_fixedwing[SERVO_0] * rc_channels[RC_AUX3];
+  servo_commands[SERVO_1] = servo0123_default_position - multirotor_yaw_negative * (1.0f - rc_channels[RC_AUX3]) + servo_commands_fixedwing[SERVO_1] * rc_channels[RC_AUX3];
+  servo_commands[SERVO_2] = servo0123_default_position + servo_commands_fixedwing[SERVO_2] * rc_channels[RC_AUX3];
+  servo_commands[SERVO_3] = servo0123_default_position + servo_commands_fixedwing[SERVO_3] * rc_channels[RC_AUX3];
+  servo_commands[SERVO_4] = servo45_default_position - multirotor_yaw_positive * (1.0f - rc_channels[RC_AUX3]) + servo_commands_fixedwing[SERVO_4] * rc_channels[RC_AUX3];
+  servo_commands[SERVO_5] = servo45_default_position + multirotor_yaw_negative * (1.0f - rc_channels[RC_AUX3]) + servo_commands_fixedwing[SERVO_5] * rc_channels[RC_AUX3];
 }
 
 // DESCRIPTION: Arming occurs when arm switch is switched from low to high twice in the span of a second.
