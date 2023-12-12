@@ -15,8 +15,9 @@ DshotManager dshot;
 
 #define FEEDBACK_DIVISOR 2 // How many loops we should run before getting rpm data
 int32_t loop_count = 0; // 32 bit as its faster to run but uses more memory, we have plenty of memory
+
+// sends new commands to motors and updates the motor rpm
 // returns true if there is new rpm data
-// don't worry about what this does
 bool sendMotorCommands(float motor_rpms[], float motor_commands[]) {
   bool new_rpm = false;
   loop_count += 1;
@@ -41,10 +42,7 @@ bool sendMotorCommands(float motor_rpms[], float motor_commands[]) {
       } else {
         motor_rpms[i] = erpm / POLE_PAIRS;
       }
-      // printDebug("motor_num: ", i);
-      // printDebug(" motor_rpms: ", motor_rpms[i]);
     }
-  // printNewLine();
   }
 
   return new_rpm;
@@ -67,7 +65,8 @@ void initMotors() {
   }
 }
 
-// don't change
+// TODO edit the 2047.0f to 120.0f or so when wanting to safely test motors, will limit max motor output
+// once finished testing set to 2047.0f again to get full throttle from motors
 void initMotorScaling() {
   rangeScalerInit(
     &motor_scaling,

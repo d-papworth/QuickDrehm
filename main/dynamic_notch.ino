@@ -6,6 +6,8 @@
 //                                                 DYNAMIC NOTCH CODE                                                     //
 //========================================================================================================================//
 
+// conversion from time to frequency domain and filtering wizardry happens here
+
 // Struct defines live in global_defines.h
 #define DYN_NOTCH_SMOOTH_HZ        4
 #define DYN_NOTCH_CALC_TICKS       (AXIS_COUNT * STEP_COUNT) // 3 axes and 4 steps per axis

@@ -22,6 +22,7 @@
   DSM1024 DSM;
 #endif
 
+// TODO set this function up with settings found from findRcChannelLimits(RC_ARM)
 // comment channels you are not using or add extra channels you are using
 void initRcScalers(midpointRangeScaler_t rc_scalers[]) {
   midpointRangeScalerInit(
@@ -113,7 +114,7 @@ bool getRcChannels(uint16_t rc_channels[]) {
     failsafe = true;
   }
   
-  int failsafe_min_value = 150; // TODO find this number
+  int failsafe_min_value = 150;
   int failsafe_max_value = 1850;
   for (int i = 0; i < RC_CHANNEL_COUNT; i++) {
     rc_channels[i] = sbusChannels[i];

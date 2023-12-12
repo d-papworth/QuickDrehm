@@ -22,60 +22,60 @@ const int servoPins[MAX_SERVO_COUNT] = {0, 1, 5, 6, 10, 11, 12, 14, 15}; // Weir
 
 PWMServo servo[SERVO_COUNT];  // Create servo objects to control a servo or ESC with PWM
 
-// comment servos you are not using
+// TODO set up the servo scaling as needed for each servo
 void initServoScales(boundedRangeScaler_t servoScales[]) {
   servoScalerInitHelper(
-    servoScales[SERVO_0], // update roll rc_scaler
-    50.0f, -90.0f, // input min and max set to servo/control surface angles, use a higher then lower number to swap directions
-    0.1, 1.0 // use values of 0.0-1.0, change these if you want to limit servo movement 
+    servoScales[SERVO_0], 
+    50.0f, -90.0f, // Servo control surface angle min and max, use a higher then lower number to swap directions
+    0.1, 1.0 // change these if you want to limit servo movement, only takes a range of 0.0-1.0
   );
 
   servoScalerInitHelper(
-    servoScales[SERVO_1], // update roll rc_scaler
-    -90.0f, 50.0f, // input min and max set to servo/control surface angles, use a higher then lower number to swap directions
-    0.0, 0.9 // use values of 0.0-1.0, change these if you want to limit servo movement 
+    servoScales[SERVO_1], 
+    -90.0f, 50.0f, // Servo control surface angle min and max, use a higher then lower number to swap directions
+    0.0, 0.9 // change these if you want to limit servo movement, only takes a range of 0.0-1.0
   );
 
   servoScalerInitHelper(
-    servoScales[SERVO_2], // update roll rc_scaler
-    -45.0f, 45.0f, // input min and max set to servo/control surface angles, use a higher then lower number to swap directions
-    0.05, 0.95 // use values of 0.0-1.0, change these if you want to limit servo movement 
+    servoScales[SERVO_2], 
+    -45.0f, 45.0f, // Servo control surface angle min and max, use a higher then lower number to swap directions
+    0.05, 0.95 // change these if you want to limit servo movement, only takes a range of 0.0-1.0
   );
 
   servoScalerInitHelper(
-    servoScales[SERVO_3], // update roll rc_scaler
-    45.0f, -45.0f, // input min and max set to servo/control surface angles, use a higher then lower number to swap directions
-    0.05, 0.95 // use values of 0.0-1.0, change these if you want to limit servo movement 
+    servoScales[SERVO_3], 
+    45.0f, -45.0f, // Servo control surface angle min and max, use a higher then lower number to swap directions
+    0.05, 0.95 // change these if you want to limit servo movement, only takes a range of 0.0-1.0
   );
   
   servoScalerInitHelper(
-    servoScales[SERVO_4], // update roll rc_scaler
-    0.0f, 90.0f, // input min and max set to servo/control surface angles, use a higher then lower number to swap directions
-    0.48, 0.92 // use values of 0.0-1.0, change these if you want to limit servo movement 
+    servoScales[SERVO_4], 
+    0.0f, 90.0f, // Servo control surface angle min and max, use a higher then lower number to swap directions
+    0.48, 0.92 // change these if you want to limit servo movement, only takes a range of 0.0-1.0
   ); 
 
   servoScalerInitHelper(
-    servoScales[SERVO_5], // update roll rc_scaler
-    90.0f, 0.0f, // input min and max set to servo/control surface angles, use a higher then lower number to swap directions
-    0.07, 0.5 // use values of 0.0-1.0, change these if you want to limit servo movement 
+    servoScales[SERVO_5], 
+    90.0f, 0.0f, // Servo control surface angle min and max, use a higher then lower number to swap directions
+    0.07, 0.5 // change these if you want to limit servo movement, only takes a range of 0.0-1.0
   );
 
   servoScalerInitHelper(
-    servoScales[SERVO_6], // update roll rc_scaler
-    -90.0f, 90.0f, // input min and max set to servo/control surface angles, use a higher then lower number to swap directions
-    0.0, 1.0 // use values of 0.0-1.0, change these if you want to limit servo movement 
+    servoScales[SERVO_6], 
+    -90.0f, 90.0f, // Servo control surface angle min and max, use a higher then lower number to swap directions
+    0.0, 1.0 // change these if you want to limit servo movement, only takes a range of 0.0-1.0
   );
 
   servoScalerInitHelper(
-    servoScales[SERVO_7], // update roll rc_scaler
-    -90.0f, 90.0f, // input min and max set to servo/control surface angles, use a higher then lower number to swap directions
-    0.0, 1.0 // use values of 0.0-1.0, change these if you want to limit servo movement 
+    servoScales[SERVO_7], 
+    -90.0f, 90.0f, // Servo control surface angle min and max, use a higher then lower number to swap directions
+    0.0, 1.0 // change these if you want to limit servo movement, only takes a range of 0.0-1.0
   ); 
 
   servoScalerInitHelper(
-    servoScales[SERVO_8], // update roll rc_scaler
-    -90.0f, 90.0f, // input min and max set to servo/control surface angles, use a higher then lower number to swap directions
-    0.0, 1.0 // use values of 0.0-1.0, change these if you want to limit servo movement 
+    servoScales[SERVO_8], 
+    -90.0f, 90.0f, // Servo control surface angle min and max, use a higher then lower number to swap directions
+    0.0, 1.0 // change these if you want to limit servo movement, only takes a range of 0.0-1.0
   );
 }
 
@@ -90,7 +90,7 @@ void initServos(boundedRangeScaler_t servoScales[]) {
 
 void servoScalerInitHelper(boundedRangeScaler_t &servoScales, float angle_min, float angle_max, float range_min, float range_max) {
     boundedRangeScalerInit(
-    &servoScales, // update roll rc_scaler
+    &servoScales, 
     angle_min, angle_max, // input min and max set to servo/control surface angles
     range_min * 180.0f, range_max * 180.0f // output min and max don't change as this relates to servo library code
   );

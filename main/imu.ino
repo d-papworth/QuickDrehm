@@ -84,7 +84,7 @@
 // These include functions for using and setup of sensors
 
 // imu sensor rotation
-void alignSensorViaRotation(float dest[], axisRotation rotation[]) {
+void vectorRotation(float dest[], axisRotation rotation[]) {
   const float x = dest[AXIS_X];
   const float y = dest[AXIS_Y];
   const float z = dest[AXIS_Z];
@@ -332,10 +332,10 @@ bool getIMUdata(float gyro_bias[], float acc_bias[], float mag_bias[], float gyr
 #endif
   }
 
-  alignSensorViaRotation(acc, rotation);
-  alignSensorViaRotation(gyro, rotation);
+  vectorRotation(acc, rotation);
+  vectorRotation(gyro, rotation);
 #ifdef USE_MPU9250_SPI
-  alignSensorViaRotation(mag, rotation);
+  vectorRotation(mag, rotation);
 #endif
   return new_acc;
 }
@@ -559,7 +559,7 @@ void Madgwick6DOF(float gyro[], float acc[], bool new_acc, float gyro_dt, float 
 
   // Compute feedback only if accelerometer measurement valid (avoids NaN in accelerometer normalisation)
   // Look into improving this part of the algorithm
-  // TODO Look at disabling ACC unless its near a 1.0 magnitude
+  // TODO for Kevin Look at disabling ACC unless its near a 1.0 magnitude
   if (!((ax < 0.01f && ax > -0.01f) && (ay < 0.01f && ay > -0.01f) && (az < 0.01f && az > -0.01f)) && new_acc) {
     // Normalise accelerometer measurement
     float accNorm = invSqrt(ax * ax + ay * ay + az * az);

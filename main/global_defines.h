@@ -13,7 +13,7 @@
 
 #define SEC_TO_MICROSEC 1000000
 
-#define LOOPRATE 4000.0f // leave at 4k unless you measure it not hitting 4k, then try 2k
+#define LOOPRATE 4000.0f // leave at 4k unless you measure looprate as less than 4k, then try 2k
 #define DT (1.0f / LOOPRATE)
 #define ACC_DIVIDER 4 // this is how many times slower than looprate the ACC runs
 #define ACC_LOOPRATE (LOOPRATE / ACC_DIVIDER)
@@ -41,14 +41,14 @@
 #define USE_SBUS_RX // if using ELRS set SBUS Failsafe to Last Position otherwise there will be failsafe problems
 // #define USE_DSM_RX
 
-// ensure that these match the channels they go to, this is setup for standard opentx/edgetx channel order AETR
-#define RC_ROLL 0 // can also be called aileron
-#define RC_PITCH 1 // can also be called elevator
+// TODO ensure that these match the channels they go to, this is setup for standard opentx/edgetx channel order AETR
+#define RC_ROLL 0 // can also be called RC_AILERON if desired
+#define RC_PITCH 1 // can also be called RC_ELEVATOR if desired
 #define RC_THROTTLE 2
-#define RC_YAW 3 // can also be called rudder
+#define RC_YAW 3 // can also be called RC_RUDDER if desired
 #define RC_ARM 4 // if using ELRS this channel should always be your arming channel
 
-// comment out aux channels that you are not using
+// TODO rename to match aux channels function if desired
 #define RC_AUX1 5 // rename if you want channels to have mode names
 #define RC_AUX2 6 // rename if you want channels to have mode names
 #define RC_AUX3 7 // rename if you want channels to have mode names
@@ -71,22 +71,22 @@ typedef enum {
   ROT_270_DEG = 3,
 } axisRotation;
 
-// change this depending on your imu rotation
+// TODO change this depending on your imu rotation
 axisRotation imuRotation[AXIS_COUNT] = {ROT_0_DEG, ROT_0_DEG, ROT_180_DEG}; // roll, pitch, yaw rotation
 
-// Run the function calculateGyroBias() in setup() to find these values.
+// TODO Run the function calculateGyroBias() in setup() to find these values.
 float gyro_bias[AXIS_COUNT] = {
-  0.18f, // roll
-  0.12f, // pitch
-  -1.68f, // yaw
+  0.0f, // roll
+  0.0f, // pitch
+  0.0f, // yaw
 };
 float acc_bias[AXIS_COUNT] = {
-  0.08f, // x
-  -0.01f, // y
-  0.04f, // z
+  0.0f, // x
+  0.0f, // y
+  0.0f, // z
 };
 #ifdef USE_MPU9250_SPI
-// Run the function calibrateMagnetometer() in setup() to find these values.
+// TODO Run the function calibrateMagnetometer() in setup() to find these values.
 float mag_bias[AXIS_COUNT] = {0.0, 0.0, 0.0};
 float mag_scale[AXIS_COUNT] = {0.0, 0.0, 0.0};
 #endif
@@ -95,9 +95,9 @@ float mag_scale[AXIS_COUNT] = {0.0, 0.0, 0.0};
 //======================================================SERVO SETUP=======================================================//
 
 #define MAX_SERVO_COUNT 9 // don't change this
-#define SERVO_COUNT 9 // set to your servo count
+#define SERVO_COUNT 9 // no real need to change
 
-// Remember to also rename in servo.ino
+// TODO rename to match servo function, IE SERVO_FRONT_LEFT
 // pin 0
 #define SERVO_0 0 // rename to match what the servo does
 // pin 1
@@ -106,18 +106,16 @@ float mag_scale[AXIS_COUNT] = {0.0, 0.0, 0.0};
 #define SERVO_2 2 // rename to match what the servo does
 // pin 6
 #define SERVO_3 3 // rename to match what the servo does
-// pin 7
-#define SERVO_4 4 // rename to match what the servo does
 // pin 10
-#define SERVO_5 5 // rename to match what the servo does
+#define SERVO_4 4 // rename to match what the servo does
 // pin 11
-#define SERVO_6 6 // rename to match what the servo does
+#define SERVO_5 5 // rename to match what the servo does
 // pin 12
-#define SERVO_7 7 // rename to match what the servo does
+#define SERVO_6 6 // rename to match what the servo does
 // pin 14
-#define SERVO_8 8 // rename to match what the servo does
+#define SERVO_7 7 // rename to match what the servo does
 // pin 15
-#define SERVO_9 9 // rename to match what the servo does
+#define SERVO_8 8 // rename to match what the servo does
 
 //======================================================MOTOR SETUP=======================================================//
 
@@ -126,7 +124,7 @@ float mag_scale[AXIS_COUNT] = {0.0, 0.0, 0.0};
 
 #define POLE_COUNT 12 // the number of magnets in the motor, must be accurate to get accurate RPM data
 
-// Remember to also rename in motor.ino
+// TODO rename to match motor function, IE MOTOR_FRONT_LEFT
 #define MOTOR_0 0 // rename to match where the motor is or its function
 #define MOTOR_1 1 // rename to match where the motor is or its function
 #define MOTOR_2 2 // rename to match where the motor is or its function
@@ -160,22 +158,28 @@ typedef struct midpointRangeScaler_s {
 
 // filter structs
 typedef struct pt1Filter_s {
-    float state;
-    float k;
+  float state;
+  float k;
 } pt1Filter_t;
 
 typedef struct pt2Filter_s {
-    float state;
-    float state1;
-    float k;
+  float state;
+  float state1;
+  float k;
 } pt2Filter_t;
 
 typedef struct pt3Filter_s {
-    float state;
-    float state1;
-    float state2;
-    float k;
+  float state;
+  float state1;
+  float state2;
+  float k;
 } pt3Filter_t;
+
+// should be used to slowly move from one value to another or limit change of an input
+typedef struct slewFilter_s {
+  float state;
+  float max_delta;
+} slewFilter_t;
 
 typedef struct notchFilter_s {
     float b0, b1, b2, a1, a2;
@@ -192,7 +196,8 @@ typedef struct rpmFilter_s {
   float q;
 } rpmFilter_t;
 
-//======================================================DYNAMIC NOTCH STUFF=======================================================//
+//============================================DYNAMIC NOTCH STUFF CAN BE IGNORED=======================================================//
+// conversion from time to frequency domain and filtering wizardry happens here
 #define DYN_NOTCH_COUNT_MAX 5
 #define SDFT_SAMPLE_SIZE 72
 #define SDFT_BIN_COUNT   (SDFT_SAMPLE_SIZE / 2)
@@ -209,7 +214,6 @@ typedef struct sdft_s {
   int batchSize;
   int numBatches;
   float rPowerN;  // SDFT_R to the power of SDFT_SAMPLE_SIZE
-
 
   float samples[SDFT_SAMPLE_SIZE];   // circular buffer
   complex_t data[SDFT_BIN_COUNT];    // complex frequency spectrum
@@ -263,8 +267,3 @@ typedef struct dynNotch_s {
   float   sdftNoiseThreshold;
   float   pt1LooptimeS;
 } dynNotch_t;
-
-//========================================================================================================================//
-//                                                  DON'T TOUCH CONSTANTS                                                 //
-//========================================================================================================================//
-// Code below here should not normally need to be edited
