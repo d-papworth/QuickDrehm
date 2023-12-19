@@ -479,7 +479,13 @@ void loop() {
     gyro_filtered, acc_filtered, new_acc, DT, ACC_DT, // Is used to calculate attitude changes, but is not updated
     attitude_euler, gravity_vector // Will be updated with attitude data
   );
-
+// bool should_print = shouldPrint(current_time, 10.0f); // Print data at 50hz
+//   if (should_print) {
+//     printDebug("gyro roll", attitude_euler[AXIS_ROLL]);
+//     printDebug(", pitch", attitude_euler[AXIS_PITCH]);
+//     printDebug(", yaw", attitude_euler[AXIS_YAW]);
+//     printNewLine();
+//   }
 //===============================================GET RC DATA AND FILTER===================================================//
 
   // Get rc commands
@@ -521,7 +527,7 @@ void loop() {
   float setpoints_rpy[AXIS_COUNT]; // these are the desired angles or rotation
 
   // TODO add extra modes for fixedwing flight modes with different setpoints
-  if (rc_channels[RC_AUX1] > 0.55) { // lets call aux1 angle mode for now, you can rename it later
+  if (rc_channels[RC_ORIENT] > 0.55) { // lets call aux1 angle mode for now, you can rename it later
     // These setpoints are in deg, in other words what angle you want to be at, except for yaw which is in deg/s
     // keep the max angle below about 60
 
@@ -557,7 +563,7 @@ void loop() {
 
     // put your fixed wing into angle mode and slowly turn it to the right while failsafed
     // really only works for fixed wing aircraft
-    rc_channels[RC_AUX1] = 1.0f; // set the aircraft to angle mode
+    rc_channels[RC_ORIENT] = 1.0f; // set the aircraft to angle mode
     setpoints_rpy[AXIS_ROLL] = 25.0; // tilt right slightly to help turn
     setpoints_rpy[AXIS_PITCH] = 5.0; // pitch down to help keep some airspeed and prevent stalling
 
@@ -601,7 +607,7 @@ void loop() {
   );
 */
   float pidSums[AXIS_COUNT] = {0.0f, 0.0f, 0.0f}; // will be used in the mixer
-  if (rc_channels[RC_AUX1] > 0.55) { // lets call aux1 angle mode for now, you can rename it later
+  if (rc_channels[RC_ORIENT] > 0.55) { // lets call aux1 angle mode for now, you can rename it later
 
     // will modify setpoints_rpy to be used as the setpoint input to ratePidApply
     attitudePidApply(
@@ -675,6 +681,7 @@ void loop() {
   sendServoCommands(
     servoScales, // scales servo commands from degrees to servo units
     servo_commands // servo commands in degrees
+    
   );
 
   float motor_rpms[MOTOR_COUNT];
@@ -718,10 +725,10 @@ void controlMixer(float rc_channels[], float pidSums[], float motor_commands[], 
   
   // TODO mix inputs to servo commands
   // servos need to be scaled to work properly with the servo scaling that was set earlier
-  servo_commands[SERVO_0] = 0.0f;
-  servo_commands[SERVO_1] = 0.0f;
-  servo_commands[SERVO_2] = 0.0f;
-  servo_commands[SERVO_3] = 0.0f;
+  servo_commands[SERVO_BR] = 0.0f;
+  servo_commands[SERVO_BL] = rc_channels[RC_ROLL] * 90.0f;
+  servo_commands[SERVO_FR] = 0.0f;
+  servo_commands[SERVO_FL] = 0.0f;
   servo_commands[SERVO_4] = 0.0f;
   servo_commands[SERVO_5] = 0.0f;
   servo_commands[SERVO_6] = 0.0f;

@@ -49,8 +49,8 @@
 #define RC_ARM 4 // if using ELRS this channel should always be your arming channel
 
 // TODO rename to match aux channels function if desired
-#define RC_AUX1 5 // rename if you want channels to have mode names
-#define RC_AUX2 6 // rename if you want channels to have mode names
+#define RC_ORIENT 5 // rename if you want channels to have mode names
+#define RC_ANGLEM 6 // rename if you want channels to have mode names
 #define RC_AUX3 7 // rename if you want channels to have mode names
 #define RC_AUX4 8 // rename if you want channels to have mode names
 #define RC_AUX5 9 // rename if you want channels to have mode names
@@ -68,7 +68,7 @@ typedef enum {
 } axisRotation;
 
 // TODO change this depending on your imu rotation
-axisRotation imuRotation[AXIS_COUNT] = {ROT_0_DEG, ROT_0_DEG, ROT_180_DEG}; // roll, pitch, yaw rotation
+axisRotation imuRotation[AXIS_COUNT] = {ROT_0_DEG, ROT_0_DEG, ROT_0_DEG}; // roll, pitch, yaw rotation
 
 // TODO Run the function calculateGyroBias() in setup() to find these values.
 float gyro_bias[AXIS_COUNT] = {
@@ -88,15 +88,15 @@ float acc_bias[AXIS_COUNT] = {
 #define MAX_SERVO_COUNT 9 // don't change this
 #define SERVO_COUNT 9 // no real need to change
 
-// TODO rename to match servo function, IE SERVO_FRONT_LEFT
+// TODO rename to match servo function, IE SERVO_5ONT_LEFT
 // pin 0
-#define SERVO_0 0 // rename to match what the servo does
+#define SERVO_BR 0 // rename to match what the servo does
 // pin 1
-#define SERVO_1 1 // rename to match what the servo does
+#define SERVO_BL 1 // rename to match what the servo does
 // pin 5
-#define SERVO_2 2 // rename to match what the servo does
+#define SERVO_FR 2 // rename to match what the servo does
 // pin 6
-#define SERVO_3 3 // rename to match what the servo does
+#define SERVO_FL 3 // rename to match what the servo does
 // pin 10
 #define SERVO_4 4 // rename to match what the servo does
 // pin 11
@@ -132,12 +132,6 @@ typedef struct rangeScaler_s {
   float offset;
 } rangeScaler_t;
 
-typedef struct boundedRangeScaler_s {
-  rangeScaler_t scaler;
-  float min;
-  float max;
-} boundedRangeScaler_t;
-
 // Used in helper.ino to scale ranges between an input range with midpoint and an output range with midpoint
 typedef struct midpointRangeScaler_s {
   rangeScaler_t low_range;
@@ -146,6 +140,13 @@ typedef struct midpointRangeScaler_s {
   float deadband_high;
   float desired_mid;
 } midpointRangeScaler_t;
+
+typedef struct boundedRangeScaler_s {
+  midpointRangeScaler_t scaler;
+  float min;
+  float max;
+} boundedRangeScaler_t;
+
 
 // filter structs
 typedef struct pt1Filter_s {

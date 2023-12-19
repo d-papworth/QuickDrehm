@@ -45,7 +45,7 @@ void initRcScalers(midpointRangeScaler_t rc_scalers[]) {
 
   midpointRangeScalerInit(
     &rc_scalers[RC_YAW], // update yaw rc_scaler
-    174.0f, 992.0f, 1811.0f, // input min, mid and max
+    174.0f, 996.0f, 1811.0f, // input min, mid and max
     -1.0f, 0.0f, 1.0f, // output min, mid and max don't typically change from a -1.0f to 1.0f range
     2.0f); // deadband
 
@@ -56,13 +56,13 @@ void initRcScalers(midpointRangeScaler_t rc_scalers[]) {
     0.0f); // switches and aux channels typically need no deadband
 
   midpointRangeScalerInit(
-    &rc_scalers[RC_AUX1], // update aux1 rc_scaler
+    &rc_scalers[RC_ORIENT], // update aux1 rc_scaler
     191.0f, 992.0f, 1792.0f, // input min, mid and max
     0.0f, 0.5, 1.0f, // output min, mid and max for switches keeping to a 0.0f to 1.0f range is normally best, for pots set it up as desired
     0.0f); // deadband
 
   midpointRangeScalerInit(
-    &rc_scalers[RC_AUX2], // update aux2 rc_scaler
+    &rc_scalers[RC_ANGLEM], // update aux2 rc_scaler
     191.0f, 992.0f, 1792.0f, // input min, mid and max
     0.0f, 0.5, 1.0f, // output min, mid and max for switches keeping to a 0.0f to 1.0f range is normally best, for pots set it up as desired
     0.0f); // switches and aux channels typically need no deadband
